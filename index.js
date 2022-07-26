@@ -4,7 +4,7 @@ import {BufferListStream} from 'bl';
 
 const ASCII_ETX_CODE = 0x03; // Ctrl+C emits this code
 
-export class StdinDiscarder {
+class StdinDiscarder {
 	#requests = 0;
 	#mutedStream = new BufferListStream();
 	#ourEmit;
@@ -14,7 +14,7 @@ export class StdinDiscarder {
 		this.#mutedStream.pipe(process.stdout);
 
 		const self = this; // eslint-disable-line unicorn/no-this-assignment
-		this.#ourEmit = function (event, data, ...args) {
+		this.#ourEmit = function (event, data, ...arguments_) {
 			const {stdin} = process;
 			if (self.#requests > 0 || stdin.emit === self.#ourEmit) {
 				if (event === 'keypress') { // Fixes readline behavior
@@ -25,9 +25,9 @@ export class StdinDiscarder {
 					process.emit('SIGINT');
 				}
 
-				Reflect.apply(self.#ourEmit, this, [event, data, ...args]);
+				Reflect.apply(self.#ourEmit, this, [event, data, ...arguments_]);
 			} else {
-				Reflect.apply(process.stdin.emit, this, [event, data, ...args]);
+				Reflect.apply(process.stdin.emit, this, [event, data, ...arguments_]);
 			}
 		};
 	}
@@ -83,3 +83,7 @@ export class StdinDiscarder {
 		this.#rl = undefined;
 	}
 }
+
+const stdinDiscarder = new StdinDiscarder();
+
+export default stdinDiscarder;
