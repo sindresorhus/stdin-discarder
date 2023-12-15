@@ -31,9 +31,6 @@
 		"ignore",
 		"input"
 	],
-	"dependencies": {
-		"bl": "^5.0.0"
-	},
 	"devDependencies": {
 		"ava": "^4.3.0",
 		"hook-std": "^3.0.0",
