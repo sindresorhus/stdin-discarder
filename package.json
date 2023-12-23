@@ -1,6 +1,6 @@
 {
 	"name": "stdin-discarder",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Discard stdin input except for Ctrl+C",
 	"license": "MIT",
 	"repository": "sindresorhus/stdin-discarder",
