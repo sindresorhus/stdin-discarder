@@ -33,7 +33,7 @@ class StdinDiscarder {
 
 		process.stdin.setRawMode(true);
 		process.stdin.on('data', this.#handleInput);
-		process.stdin.unref();
+		process.stdin.resume();
 	}
 
 	#realStop() {
@@ -41,8 +41,9 @@ class StdinDiscarder {
 			return;
 		}
 
-		process.stdin.setRawMode(false);
 		process.stdin.off('data', this.#handleInput);
+		process.stdin.pause();
+		process.stdin.setRawMode(false);
 	}
 
 	#handleInput(chunk) {
