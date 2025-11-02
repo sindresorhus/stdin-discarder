@@ -1,59 +1,89 @@
 import process from 'node:process';
 
-const ASCII_ETX_CODE = 0x03; // Ctrl+C emits this code
+const ASCII_ETX_CODE = 0x03; // Ctrl+C
 
 class StdinDiscarder {
 	#activeCount = 0;
+	#stdin;
+	#stdinWasPaused = false;
+	#stdinWasRaw = false;
+	#handleInputBound = chunk => {
+		if (!chunk?.length) {
+			return;
+		}
+
+		const code = typeof chunk === 'string' ? chunk.codePointAt(0) : chunk[0];
+		if (code === ASCII_ETX_CODE) {
+			if (process.listenerCount('SIGINT') > 0) {
+				process.emit('SIGINT');
+			} else {
+				process.kill(process.pid, 'SIGINT');
+			}
+		}
+	};
 
 	start() {
 		this.#activeCount++;
-
 		if (this.#activeCount === 1) {
 			this.#realStart();
 		}
 	}
 
 	stop() {
-		if (this.#activeCount <= 0) {
-			throw new Error('`stop` called more times than `start`');
+		if (this.#activeCount === 0) {
+			return;
 		}
 
-		this.#activeCount--;
-
-		if (this.#activeCount === 0) {
+		if (--this.#activeCount === 0) {
 			this.#realStop();
 		}
 	}
 
 	#realStart() {
-		// No known way to make it work reliably on Windows.
-		if (process.platform === 'win32' || !process.stdin.isTTY) {
+		const {stdin} = process;
+
+		if (process.platform === 'win32' || !stdin?.isTTY || typeof stdin.setRawMode !== 'function') {
+			this.#stdin = undefined;
 			return;
 		}
 
-		process.stdin.setRawMode(true);
-		process.stdin.on('data', this.#handleInput);
-		process.stdin.resume();
+		this.#stdin = stdin;
+		this.#stdinWasPaused = stdin.isPaused();
+		this.#stdinWasRaw = Boolean(stdin.isRaw);
+
+		stdin.setRawMode(true);
+		stdin.prependListener('data', this.#handleInputBound);
+
+		if (this.#stdinWasPaused) {
+			stdin.resume();
+		}
 	}
 
 	#realStop() {
-		if (!process.stdin.isTTY) {
+		if (!this.#stdin) {
 			return;
 		}
 
-		process.stdin.off('data', this.#handleInput);
-		process.stdin.pause();
-		process.stdin.setRawMode(false);
-	}
+		const stdin = this.#stdin;
 
-	#handleInput(chunk) {
-		// Allow Ctrl+C to gracefully exit.
-		if (chunk[0] === ASCII_ETX_CODE) {
-			process.emit('SIGINT');
+		stdin.off('data', this.#handleInputBound);
+
+		if (stdin.isTTY) {
+			stdin.setRawMode?.(this.#stdinWasRaw);
 		}
+
+		if (this.#stdinWasPaused) {
+			stdin.pause();
+		} else {
+			stdin.resume();
+		}
+
+		this.#stdin = undefined;
+		this.#stdinWasPaused = false;
+		this.#stdinWasRaw = false;
 	}
 }
 
 const stdinDiscarder = new StdinDiscarder();
 
-export default stdinDiscarder;
+export default Object.freeze(stdinDiscarder);
