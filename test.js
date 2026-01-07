@@ -392,3 +392,31 @@ test('Windows nested start/stop maintains ref-count correctly', t => {
 		}
 	}
 });
+
+test('does not call resume() on stop when stdin was already flowing', t => {
+	// Regression test for sindresorhus/ora#248
+	// Calling resume() when stdin was already flowing can prevent process exit
+	// if stdin is open but never receives EOF (e.g., in pre-commit hooks)
+	const mock = makeMockStdin();
+	let resumeCallCount = 0;
+	const originalResume = mock.resume.bind(mock);
+	mock.resume = () => {
+		resumeCallCount++;
+		return originalResume();
+	};
+
+	// Start with stdin already flowing
+	originalResume();
+	t.false(mock.isPaused());
+
+	const resumeCountBefore = resumeCallCount;
+
+	withMockedStdin(mock, () => {
+		stdinDiscarder.start();
+		stdinDiscarder.stop();
+	});
+
+	// Resume should not have been called since stdin was already flowing
+	t.is(resumeCallCount, resumeCountBefore, 'resume() should not be called when stdin was already flowing');
+	t.false(mock.isPaused(), 'stdin should still be flowing');
+});

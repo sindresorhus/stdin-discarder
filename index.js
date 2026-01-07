@@ -74,8 +74,6 @@ class StdinDiscarder {
 
 		if (this.#stdinWasPaused) {
 			stdin.pause();
-		} else {
-			stdin.resume();
 		}
 
 		this.#stdin = undefined;
