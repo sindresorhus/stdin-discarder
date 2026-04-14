@@ -14,11 +14,8 @@ class StdinDiscarder {
 
 		const code = typeof chunk === 'string' ? chunk.codePointAt(0) : chunk[0];
 		if (code === ASCII_ETX_CODE) {
-			if (process.listenerCount('SIGINT') > 0) {
-				process.emit('SIGINT');
-			} else {
-				process.kill(process.pid, 'SIGINT');
-			}
+			// Always re-signal the process. Emitting `SIGINT` directly breaks normal Ctrl+C termination when libraries install listeners for cleanup.
+			process.kill(process.pid, 'SIGINT');
 		}
 	};
 

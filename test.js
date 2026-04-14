@@ -146,14 +146,29 @@ test('nested start/stop is ref-counted and safe', t => {
 	});
 });
 
-test('Ctrl+C: emits when there are listeners', t => {
+test('Ctrl+C: sends real signal even when listeners exist', t => {
 	const mock = makeMockStdin();
 
-	let seen = 0;
-	const onSigint = () => {
-		seen++;
+	const originalKill = process.kill;
+	const originalEmit = process.emit;
+	let killCalled = 0;
+	let killArgs = [];
+	let emittedSignal;
+	process.kill = (...args) => {
+		killCalled++;
+		killArgs = args;
+		return true;
 	};
 
+	process.emit = (event, ...arguments_) => {
+		if (event === 'SIGINT') {
+			emittedSignal = event;
+		}
+
+		return originalEmit.call(process, event, ...arguments_);
+	};
+
+	const onSigint = () => {};
 	process.on('SIGINT', onSigint);
 
 	try {
@@ -162,9 +177,14 @@ test('Ctrl+C: emits when there are listeners', t => {
 			mock._emitData(Buffer.from([0x03]));
 			stdinDiscarder.stop();
 		});
-		t.is(seen, 1);
+		t.is(killCalled, 1);
+		t.is(killArgs[0], process.pid);
+		t.is(killArgs[1], 'SIGINT');
+		t.is(emittedSignal, undefined);
 	} finally {
 		process.off('SIGINT', onSigint);
+		process.emit = originalEmit;
+		process.kill = originalKill;
 	}
 });
 
